@@ -3,7 +3,7 @@ import joblib
 import pandas as pd
 import requests
 import json
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from statsmodels.tsa.arima.model import ARIMA
 from dotenv import load_dotenv
 import os
 
@@ -120,6 +120,8 @@ def predict_bdry(input_dict):
     return prediction, lower, upper
 
 
+from statsmodels.tsa.arima.model import ARIMA
+
 def get_forecast_trend():
     hist = pd.read_csv("data/freight_features.csv", parse_dates=["Date"])
     hist = hist.sort_values("Date").reset_index(drop=True)
@@ -127,8 +129,12 @@ def get_forecast_trend():
     series.index = pd.DatetimeIndex(series.index).to_period("M").to_timestamp()
     series = series.asfreq("MS").interpolate()
 
-    hw_model = ExponentialSmoothing(series, trend="add", seasonal=None, initialization_method="estimated")
-    fitted = hw_model.fit()
+    # ARIMA(1,1,1) selected after backtesting against Holt-Winters,
+    # naive, moving average, and damped trend methods. ARIMA achieved
+    # the best directional accuracy (61.7% vs 50% baseline) and lowest
+    # error in walk-forward validation - see backtest_compare_methods.py
+    arima_model = ARIMA(series, order=(1, 1, 1))
+    fitted = arima_model.fit()
     forecast = fitted.forecast(3)
 
     current_value = series.iloc[-1]
@@ -157,7 +163,6 @@ def get_forecast_trend():
         "chart_actual": chart_actual,
         "chart_forecast": chart_forecast
     }
-
 
 def recommend_vessel(cargo_quantity_mt, predicted_bdry, distance_nm):
     daily_rate_panamax_equiv = bdry_to_daily_rate(predicted_bdry)
