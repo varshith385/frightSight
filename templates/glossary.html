@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>frightSight — Glossary</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #0f1b2d;
+            color: #e8e6df;
+            margin: 0;
+            padding: 36px 20px;
+            line-height: 1.5;
+        }
+        .container { max-width: 850px; margin: 0 auto; }
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        h1 { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 600; color: #f2ead9; margin: 0; letter-spacing: -0.3px; }
+        .back-link { color: #9aa5b1; text-decoration: none; font-size: 13px; border: 1px solid #2c3e58; padding: 8px 14px; border-radius: 6px; transition: border-color 0.2s ease, color 0.2s ease; }
+        .back-link:hover { border-color: #c9924f; color: #c9924f; }
+        .subtitle { color: #9aa5b1; margin-bottom: 30px; font-size: 14px; }
+
+        .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7686; margin: 34px 0 14px; font-weight: 600; }
+        .term-card { background: #16253b; border: 1px solid #24354e; border-radius: 8px; padding: 18px 20px; margin-bottom: 12px; }
+        .term-name { font-family: 'Fraunces', serif; font-weight: 600; color: #c9924f; font-size: 16px; margin-bottom: 8px; }
+        .term-what { color: #d8d3c4; font-size: 14px; margin-bottom: 10px; line-height: 1.55; }
+        .term-why { color: #9aa5b1; font-size: 13px; line-height: 1.55; border-top: 1px solid #223349; padding-top: 10px; margin-top: 10px; }
+        .term-why b { color: #cbd5c8; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📖 Glossary</h1>
+        <a href="/" class="back-link">← Back to Dashboard</a>
+    </div>
+    <p class="subtitle">What each term on the dashboard means, and how it shapes the prediction.</p>
+
+    <div class="section-title">Market Data Inputs</div>
+
+    <div class="term-card">
+        <div class="term-name">Coal / Oil / Iron Ore / Natural Gas Prices</div>
+        <div class="term-what">Real monthly commodity prices sourced from the World Bank's Pink Sheet. Coal and Iron Ore are the actual cargo being shipped; Oil and Natural Gas represent fuel-related energy costs.</div>
+        <div class="term-why"><b>Why it matters:</b> Higher commodity prices generally signal more shipping demand, and fuel prices directly affect a vessel's voyage cost — both feed into the freight cost prediction.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">USD/INR</div>
+        <div class="term-what">The US Dollar to Indian Rupee exchange rate, sourced from the Frankfurter API (real daily rates).</div>
+        <div class="term-why"><b>Why it matters:</b> Freight is priced in USD, but Indian importers pay in INR. A weaker rupee makes the same USD freight cost effectively more expensive for the importer — a real currency risk factor.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">VIX (Volatility Index)</div>
+        <div class="term-what">Known as the market's "fear gauge" — a real, widely used index measuring expected volatility in financial markets, sourced from Yahoo Finance.</div>
+        <div class="term-why"><b>Why it matters:</b> When VIX is high, markets are jittery and unpredictable — this often coincides with freight rate instability too, so it's used as a general risk signal.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">WTI (West Texas Intermediate)</div>
+        <div class="term-what">A major global crude oil price benchmark, separate from Brent crude, sourced from Yahoo Finance futures data.</div>
+        <div class="term-why"><b>Why it matters:</b> A second independent oil price signal — futures prices reflect market expectations, not just current spot price, adding a forward-looking element.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">SBLK (Star Bulk Carriers Stock Price)</div>
+        <div class="term-what">The real stock price of Star Bulk Carriers, one of the world's largest dry bulk shipping companies, sourced from Yahoo Finance.</div>
+        <div class="term-why"><b>Why it matters:</b> Shipping company stock prices reflect real-time investor sentiment about the freight market — a genuine market-based signal, not a synthetic one.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">MA3 (3-Month Moving Average)</div>
+        <div class="term-what">The average of a value over the past 3 months, smoothing out short-term noise to reveal the underlying trend.</div>
+        <div class="term-why"><b>Why it matters:</b> A single month's price can spike due to one-off events; the 3-month average gives the model a steadier signal of where the market is actually heading.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">Volatility (3-Month)</div>
+        <div class="term-what">The statistical standard deviation of a price over the past 3 months — a measure of how much it's been swinging up and down.</div>
+        <div class="term-why"><b>Why it matters:</b> High volatility in oil or coal prices signals an unstable market, which raises the risk of unexpected freight cost changes — feeds directly into the Risk Score.</div>
+    </div>
+
+    <div class="section-title">Prediction & Model</div>
+
+    <div class="term-card">
+        <div class="term-name">BDRY (Breakwave Dry Bulk Shipping ETF)</div>
+        <div class="term-what">A real, publicly traded fund (ticker: BDRY) that tracks dry bulk freight futures — essentially a live, tradeable proxy for the famous Baltic Dry Index, which itself is not freely available.</div>
+        <div class="term-why"><b>Why it matters:</b> This is the model's actual prediction target — a real, independent market value, not something calculated from our own inputs. This avoids circular logic in the model.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">Predicted BDRY</div>
+        <div class="term-what">The model's estimate of where the BDRY index value should be, given the market conditions you entered.</div>
+        <div class="term-why"><b>Why it matters:</b> This single number drives the entire vessel cost calculation — it's converted into an estimated daily charter rate for each vessel type.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">Confidence Range (±RMSE)</div>
+        <div class="term-what">RMSE (Root Mean Squared Error) is how far off the model's predictions typically are, measured on real historical test data. The range shown is the prediction ± this margin.</div>
+        <div class="term-why"><b>Why it matters:</b> No model is perfectly accurate — showing the honest margin of error is more trustworthy than presenting a single number as if it's guaranteed exact.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">R² (Model Accuracy Score)</div>
+        <div class="term-what">A statistical score (0 to 1) showing how well the model's predictions match real outcomes. Closer to 1 means better fit. Our model scores ~0.75-0.85 depending on the test split.</div>
+        <div class="term-why"><b>Why it matters:</b> This is the standard way to report whether a prediction model is actually working, not just guessing.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">Ridge Regression</div>
+        <div class="term-what">The specific machine learning algorithm used, chosen after comparing it against Linear Regression and Random Forest. Ridge performs best here because it handles many correlated features without overfitting on a smaller dataset.</div>
+        <div class="term-why"><b>Why it matters:</b> Shows the model choice was deliberate and tested, not arbitrary.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">Cross-Validation</div>
+        <div class="term-what">A technique where the model is tested on 5 different random splits of the data (not just one), and the results are averaged.</div>
+        <div class="term-why"><b>Why it matters:</b> Confirms the model's accuracy is stable and not just a lucky result from one particular train/test split.</div>
+    </div>
+
+    <div class="section-title">Forecast</div>
+
+    <div class="term-card">
+        <div class="term-name">3-Month Forecast Avg</div>
+        <div class="term-what">The average predicted BDRY value over the next 3 months, calculated using Holt-Winters Exponential Smoothing — a real, established time-series forecasting method.</div>
+        <div class="term-why"><b>Why it matters:</b> This is what lets the system answer "is the market going up or down," not just "what's the price right now."</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">Projected Change (%)</div>
+        <div class="term-what">The percentage difference between the current BDRY value and the 3-month forecast average.</div>
+        <div class="term-why"><b>Why it matters:</b> Directly drives the "book now vs. wait" recommendation — a rising trend suggests booking sooner, a falling trend suggests waiting.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">Trend (Rising / Falling / Stable)</div>
+        <div class="term-what">A simple label derived from the Projected Change — Rising if forecast is meaningfully higher, Falling if lower, Stable if roughly flat.</div>
+        <div class="term-why"><b>Why it matters:</b> Translates a raw percentage into an instantly understandable market signal.</div>
+    </div>
+
+    <div class="section-title">Risk & Vessel Decision</div>
+
+    <div class="term-card">
+        <div class="term-name">Risk Score</div>
+        <div class="term-what">A composite score (0-100) combining Oil Volatility, Coal Volatility, and VIX, weighted together into one number, then bucketed into Low/Medium/High.</div>
+        <div class="term-why"><b>Why it matters:</b> Gives a single, digestible risk signal instead of making the user interpret three separate volatility numbers themselves.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">Vessel Market Availability</div>
+        <div class="term-what">A derived indicator (Low/Moderate/High) based on where the predicted BDRY falls in its historical range. This is NOT live vessel tracking — real-time vessel position data requires paid AIS tracking services (like MarineTraffic), which aren't freely available.</div>
+        <div class="term-why"><b>Why it matters:</b> High BDRY (high freight rates) typically means vessel supply is tight — so this reframes a real market signal as an availability proxy, transparently labeled as derived rather than live-tracked.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">DWT (Deadweight Tonnage)</div>
+        <div class="term-what">The real, standard shipping industry measure of how much cargo weight a vessel can carry — this is what "vessel capacity" actually means in shipping.</div>
+        <div class="term-why"><b>Why it matters:</b> Directly determines how many trips are needed to move your cargo quantity, and therefore total cost and delivery time.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">CII (Carbon Intensity Indicator)</div>
+        <div class="term-what">A real regulatory rating (A through E) introduced by the IMO (International Maritime Organization) that rates a vessel's carbon emissions efficiency. A = best, E = worst.</div>
+        <div class="term-why"><b>Why it matters:</b> Increasingly relevant for compliance and cost — vessels with poor CII ratings may face operational restrictions or higher costs in the near future.</div>
+    </div>
+
+    <div class="section-title">Route & Tariff</div>
+
+    <div class="term-card">
+        <div class="term-name">Nautical Miles (Route Distance)</div>
+        <div class="term-what">Real distance between origin and destination ports, calculated using the haversine formula from actual port coordinates.</div>
+        <div class="term-why"><b>Why it matters:</b> Determines voyage days and fuel consumption, which directly drive vessel cost calculations.</div>
+    </div>
+
+    <div class="term-card">
+        <div class="term-name">BCD (Basic Customs Duty) / IGST</div>
+        <div class="term-what">Real Indian import tax categories — BCD is the base import duty, IGST is the Integrated Goods and Services Tax applied to imports. For coal and iron ore, BCD is typically 0% and IGST is 5%.</div>
+        <div class="term-why"><b>Why it matters:</b> These are real added costs on top of freight that affect the total landed cost of imported cargo — relevant for a complete procurement decision, even though not yet included in this model's live calculation.</div>
+    </div>
+
+</div>
+</body>
+</html>

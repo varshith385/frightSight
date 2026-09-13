@@ -1,0 +1,3 @@
+Commodity,HS_Code,Basic_Customs_Duty_Percent,IGST_Percent,Source,Notes
+Coal,2701,0,5,"Publicly reported Indian Customs Tariff Schedule (CBIC)","BCD nil for most steam/coking coal grades since 2021 budget; IGST 5% standard rate on coal imports"
+Iron Ore,2601,0,5,"Publicly reported Indian Customs Tariff Schedule (CBIC)","Iron ore imports for domestic steel industry typically nil BCD, standard 5% IGST"

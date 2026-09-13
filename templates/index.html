@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>frightSight — AI Freight Intelligence</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #0f1b2d;
+            color: #e8e6df;
+            margin: 0;
+            padding: 36px 20px;
+            line-height: 1.5;
+        }
+        .container { max-width: 1080px; margin: 0 auto; animation: rise 0.5s ease-out both; }
+        @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 4px; }
+        .header h1 { font-family: 'Fraunces', serif; font-size: 30px; font-weight: 600; margin: 0; color: #f2ead9; letter-spacing: -0.3px; }
+        .subtitle { color: #9aa5b1; margin-bottom: 30px; font-size: 14px; }
+        .subtitle a { color: #c9924f; text-decoration: none; border-bottom: 1px solid rgba(201,146,79,0.4); }
+        .subtitle a:hover { border-bottom-color: #c9924f; }
+
+        .grid-2 { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; margin-bottom: 18px; }
+        @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+        .card {
+            background: #16253b;
+            border: 1px solid #24354e;
+            border-radius: 10px;
+            padding: 22px;
+        }
+        .card h3 { margin-top: 0; font-size: 13px; color: #9aa5b1; letter-spacing: 0.4px; text-transform: uppercase; font-weight: 600; }
+
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .badge-rising { background: rgba(200,90,70,0.18); color: #e39a86; }
+        .badge-falling { background: rgba(90,160,150,0.18); color: #8fc9bc; }
+        .badge-stable { background: rgba(201,146,79,0.18); color: #d9ad72; }
+        .badge-low { background: rgba(90,160,150,0.18); color: #8fc9bc; }
+        .badge-medium { background: rgba(201,146,79,0.18); color: #d9ad72; }
+        .badge-high { background: rgba(200,90,70,0.18); color: #e39a86; }
+
+        .stat-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #223349; font-size: 14px; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-label { color: #8b96a3; }
+        .stat-value { font-weight: 600; color: #f2ead9; }
+
+        .timing-box { margin-top: 16px; padding: 14px 16px; background: #0f1b2d; border-radius: 8px; border-left: 3px solid #c9924f; font-size: 14px; color: #d8d3c4; }
+
+        form { background: #16253b; border: 1px solid #24354e; border-radius: 10px; padding: 24px; }
+        label { display: block; margin-top: 14px; font-weight: 500; color: #9aa5b1; font-size: 13px; }
+        input, select {
+            width: 100%; padding: 10px 12px; margin-top: 5px; box-sizing: border-box;
+            border: 1px solid #2c3e58; border-radius: 6px; background: #0f1b2d; color: #e8e6df; font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+        input:focus, select:focus { outline: none; border-color: #c9924f; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+
+        .btn-row { display: flex; gap: 10px; margin-top: 22px; }
+        button { padding: 12px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: opacity 0.15s ease; }
+        .predict-btn { background: #c9924f; color: #0f1b2d; flex: 1; }
+        .predict-btn:hover { opacity: 0.9; }
+        .autofill-btn { background: transparent; color: #9aa5b1; border: 1px solid #2c3e58; }
+        .autofill-btn:hover { border-color: #c9924f; color: #c9924f; }
+        #autofill-status { font-size: 12px; color: #8fc9bc; margin-top: 8px; min-height: 16px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+        td, th { padding: 10px 8px; border-bottom: 1px solid #223349; text-align: left; color: #d8d3c4; }
+        th { color: #8b96a3; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.3px; }
+        .best-row { background: rgba(90,160,150,0.08); }
+        .best-row td { color: #8fc9bc; font-weight: 600; }
+
+        .metric-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
+        .metric-card { background: #0f1b2d; border-radius: 8px; padding: 16px; text-align: center; }
+        .metric-card .num { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600; color: #c9924f; }
+        .metric-card .lbl { font-size: 11px; color: #8b96a3; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+        .note { font-size: 11.5px; color: #6b7686; margin-top: 14px; line-height: 1.6; }
+        canvas { max-height: 250px; }
+
+        @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <span style="font-size:30px;">🚢</span>
+        <h1>frightSight</h1>
+    </div>
+    <p class="subtitle">AI-Powered Freight Forecasting & Vessel Chartering Intelligence — East Coast India &nbsp;·&nbsp; <a href="/glossary">📖 What do these terms mean?</a></p>
+
+    <div class="grid-2">
+        <div class="card">
+            <h3>3-Month Market Forecast</h3>
+            <canvas id="forecastChart"></canvas>
+        </div>
+        <div class="card">
+            <h3>Market Status</h3>
+            <div class="stat-row"><span class="stat-label">Current BDRY Index</span><span class="stat-value">{{ forecast.current_bdry }}</span></div>
+            <div class="stat-row"><span class="stat-label">3-Month Forecast Avg</span><span class="stat-value">{{ forecast.forecast_3m_avg }}</span></div>
+            <div class="stat-row"><span class="stat-label">Projected Change</span><span class="stat-value">{{ forecast.pct_change }}%</span></div>
+            <div class="stat-row"><span class="stat-label">Trend</span>
+                <span class="badge badge-{{ forecast.trend|lower }}">{{ forecast.trend }}</span>
+            </div>
+            <div class="timing-box">📅 {{ forecast.timing_advice }}</div>
+        </div>
+    </div>
+
+    <form method="POST" id="predict-form">
+        <h3 style="margin-top:0;">Cargo & Route Details</h3>
+        <div class="form-grid">
+            <div>
+                <label>Origin Port</label>
+                <select name="origin_port" id="origin_port" required>
+                    {% for o in origins %}
+                    <option value="{{ o }}">{{ o }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Destination Port</label>
+                <select name="destination_port" id="destination_port" required>
+                    {% for d in destinations %}
+                    <option value="{{ d }}">{{ d }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Commodity</label>
+                <select name="commodity" id="commodity" required>
+                    <option value="Coal">Coal</option>
+                    <option value="Iron Ore">Iron Ore</option>
+                </select>
+            </div>
+            <div>
+                <label>Cargo Quantity (MT)</label>
+                <input type="number" name="cargo_qty" id="cargo_qty" value="50000" required>
+            </div>
+        </div>
+
+        <h3 style="margin-top:24px;">Market Inputs</h3>
+        <div class="form-grid">
+            <div><label>Coal Price (USD/MT)</label><input type="number" step="0.01" name="coal_price" id="coal_price" value="110" required></div>
+            <div><label>Oil Price - Brent (USD/Barrel)</label><input type="number" step="0.01" name="oil_price" id="oil_price" value="68" required></div>
+            <div><label>Iron Ore Price (USD/MT)</label><input type="number" step="0.01" name="ironore_price" id="ironore_price" value="100" required></div>
+            <div><label>Natural Gas (USD/MMBtu)</label><input type="number" step="0.01" name="natgas_price" id="natgas_price" value="4.0" required></div>
+            <div><label>USD/INR Rate</label><input type="number" step="0.01" name="usd_inr" id="usd_inr" value="88" required></div>
+            <div><label>VIX (Volatility Index)</label><input type="number" step="0.01" name="vix" id="vix" value="16" required></div>
+            <div><label>WTI Crude (USD/Barrel)</label><input type="number" step="0.01" name="wti" id="wti" value="60" required></div>
+            <div><label>SBLK Stock Price (USD)</label><input type="number" step="0.01" name="sblk" id="sblk" value="18" required></div>
+            <div><label>Month</label><input type="number" name="month" id="month" value="3" min="1" max="12" required></div>
+            <div><label>Year</label><input type="number" name="year" id="year" value="2026" required></div>
+        </div>
+
+        <div class="btn-row">
+            <button type="button" class="autofill-btn" onclick="autofill()">🌐 Autofill Live Data</button>
+            <button type="submit" class="predict-btn">Run Prediction</button>
+        </div>
+        <div id="autofill-status"></div>
+    </form>
+
+    {% if result %}
+    <div class="card" style="margin-top:20px;">
+        <h3>Prediction Results</h3>
+        <div class="metric-cards">
+            <div class="metric-card">
+                <div class="num">{{ result.predicted_bdry }}</div>
+                <div class="lbl">Predicted BDRY</div>
+            </div>
+            <div class="metric-card">
+                <div class="num">{{ result.lower_bound }} – {{ result.upper_bound }}</div>
+                <div class="lbl">Confidence Range (±RMSE)</div>
+            </div>
+            <div class="metric-card">
+                <div class="num"><span class="badge badge-{{ result.risk_level|lower }}">{{ result.risk_level }}</span></div>
+                <div class="lbl">Risk Score: {{ result.risk_score }}/100</div>
+            </div>
+        </div>
+
+        <div class="timing-box" style="margin-top:18px;">
+            🚢 <strong>Vessel Market Availability: {{ result.availability }}</strong> — {{ result.availability_note }}
+        </div>
+
+        <div class="timing-box" style="margin-top:12px;">
+            📍 <strong>{{ result.origin_port }} → {{ result.destination_port }}</strong> — {{ result.distance_nm }} nautical miles
+        </div>
+
+        <table>
+            <tr><th>Vessel</th><th>DWT (MT)</th><th>Speed</th><th>CII</th><th>Trips</th><th>Daily Rate</th><th>Total Cost</th><th>$/MT</th><th>Days</th></tr>
+            {% for row in result.comparison %}
+            <tr class="{% if row.vessel == result.best.vessel %}best-row{% endif %}">
+                <td>{{ row.vessel }}</td>
+                <td>{{ "{:,}".format(row.dwt) }}</td>
+                <td>{{ row.speed }} kn</td>
+                <td>{{ row.cii_band }}</td>
+                <td>{{ row.trips }}</td>
+                <td>${{ "{:,.0f}".format(row.daily_rate) }}</td>
+                <td>${{ "{:,.0f}".format(row.cost) }}</td>
+                <td>${{ row.cost_per_mt }}</td>
+                <td>{{ row.days }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <div class="timing-box" style="margin-top:16px; border-left-color:#8fc9bc;">
+            ✅ <strong>Recommended: {{ result.best.vessel }}</strong> — ${{ "{:,.2f}".format(result.best.cost) }} freight cost, {{ result.best.days }} days delivery
+        </div>
+
+        <div class="card" style="margin-top:16px; background:#0f1b2d;">
+            <h3 style="margin-bottom:14px;">Total Landed Cost Breakdown</h3>
+            <div class="stat-row"><span class="stat-label">Cargo Value</span><span class="stat-value">${{ "{:,.2f}".format(result.cargo_value) }}</span></div>
+            <div class="stat-row"><span class="stat-label">Freight Cost</span><span class="stat-value">${{ "{:,.2f}".format(result.best.cost) }}</span></div>
+            <div class="stat-row"><span class="stat-label">Basic Customs Duty ({{ result.bcd_pct }}%)</span><span class="stat-value">${{ "{:,.2f}".format(result.landed_cost.bcd_amount) }}</span></div>
+            <div class="stat-row"><span class="stat-label">IGST ({{ result.igst_pct }}%)</span><span class="stat-value">${{ "{:,.2f}".format(result.landed_cost.igst_amount) }}</span></div>
+            <div class="stat-row" style="border-top:2px solid #c9924f; padding-top:12px; margin-top:4px;"><span class="stat-label" style="color:#c9924f; font-weight:600;">Total Landed Cost</span><span class="stat-value" style="color:#c9924f; font-size:16px;">${{ "{:,.2f}".format(result.landed_cost.total_landed_cost) }}</span></div>
+        </div>
+
+        <p class="note">DWT = Deadweight Tonnage (real vessel capacity). CII = Carbon Intensity Indicator, IMO's real regulatory rating framework (A=best, E=worst); bands shown are published typical ratings per vessel class. Confidence range derived from model's cross-validated RMSE. Vessel availability is a derived market-tightness indicator based on BDRY level, not live AIS tracking. Landed cost uses real Indian customs duty structure (BCD + IGST) on top of freight.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    function autofill() {
+        document.getElementById("autofill-status").innerText = "Fetching live data...";
+        fetch("/autofill")
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("oil_price").value = data.oil_price;
+                document.getElementById("coal_price").value = data.coal_price;
+                document.getElementById("ironore_price").value = data.ironore_price;
+                document.getElementById("natgas_price").value = data.natgas_price;
+                document.getElementById("usd_inr").value = data.usd_inr;
+                document.getElementById("vix").value = data.vix;
+                document.getElementById("wti").value = data.wti;
+                document.getElementById("sblk").value = data.sblk;
+                document.getElementById("autofill-status").innerText = "✓ " + data.source_note;
+            })
+            .catch(() => {
+                document.getElementById("autofill-status").innerText = "Autofill failed — enter values manually.";
+            });
+    }
+
+    const ctx = document.getElementById('forecastChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ chart_labels_json | safe }},
+            datasets: [
+                {
+                    label: 'Historical BDRY',
+                    data: {{ chart_actual_json | safe }},
+                    borderColor: '#c9924f',
+                    backgroundColor: 'rgba(201,146,79,0.1)',
+                    tension: 0.3,
+                    spanGaps: false
+                },
+                {
+                    label: 'Forecast',
+                    data: {{ chart_forecast_json | safe }},
+                    borderColor: '#8fc9bc',
+                    borderDash: [6, 4],
+                    backgroundColor: 'rgba(143,201,188,0.1)',
+                    tension: 0.3,
+                    spanGaps: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: '#9aa5b1' } } },
+            scales: {
+                x: { ticks: { color: '#8b96a3' }, grid: { color: '#223349' } },
+                y: { ticks: { color: '#8b96a3' }, grid: { color: '#223349' } }
+            }
+        }
+    });
+</script>
+</body>
+</html>
