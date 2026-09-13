@@ -4,6 +4,10 @@ import pandas as pd
 import requests
 import json
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 app = Flask(__name__)
 model = joblib.load("freight_model.pkl")
@@ -11,9 +15,6 @@ scaler = joblib.load("scaler.pkl")
 feature_list = joblib.load("model_features.pkl")
 model_rmse = joblib.load("model_rmse.pkl")
 
-from dotenv import load_dotenv
-import os
-load_dotenv()
 API_NINJAS_KEY = os.getenv("API_NINJAS_KEY")
 
 vessels = [
@@ -95,7 +96,7 @@ def calculate_risk_score(oil_vol, coal_vol, vix):
     return round(composite, 1), level
 
 
-def build_full_input(base_values, month, year):
+def build_full_input(base_values):
     row = dict(base_values)
     row["Coal_MA3"] = base_values["Coal_Price_USD_per_MT"]
     row["Oil_MA3"] = base_values["Oil_Price_USD_per_Barrel"]
@@ -107,8 +108,6 @@ def build_full_input(base_values, month, year):
     row["SBLK_MA3"] = base_values["SBLK_Price_USD"]
     row["Oil_Volatility_3M"] = latest_data["Oil_Volatility_3M"]
     row["Coal_Volatility_3M"] = latest_data["Coal_Volatility_3M"]
-    row["Month"] = month
-    row["Year"] = year
     return {f: row[f] for f in feature_list}
 
 
@@ -249,10 +248,7 @@ def home():
         commodity_price = base_values["Coal_Price_USD_per_MT"] if commodity == "Coal" else base_values["IronOre_Price_USD_per_MT"]
         cargo_value_usd = commodity_price * cargo_qty
 
-        month = int(request.form["month"])
-        year = int(request.form["year"])
-
-        input_dict = build_full_input(base_values, month, year)
+        input_dict = build_full_input(base_values)
         predicted_bdry, lower_bound, upper_bound = predict_bdry(input_dict)
         comparison, best, availability, availability_note = recommend_vessel(cargo_qty, predicted_bdry, distance_nm)
         risk_score, risk_level = calculate_risk_score(
@@ -273,6 +269,7 @@ def home():
             "distance_nm": round(distance_nm, 1),
             "origin_port": origin_port,
             "destination_port": destination_port,
+            "commodity": commodity,
             "bcd_pct": bcd_pct,
             "igst_pct": igst_pct,
             "cargo_value": round(cargo_value_usd, 2),

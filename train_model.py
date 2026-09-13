@@ -14,9 +14,15 @@ features = [
     "NaturalGas_Price_USD_per_MMBtu", "USD_INR", "VIX_Value", "WTI_Price_USD", "SBLK_Price_USD",
     "Coal_MA3", "Oil_MA3", "IronOre_MA3", "NaturalGas_MA3", "USD_INR_MA3",
     "VIX_MA3", "WTI_MA3", "SBLK_MA3",
-    "Oil_Volatility_3M", "Coal_Volatility_3M",
-    "Month", "Year"
+    "Oil_Volatility_3M", "Coal_Volatility_3M"
 ]
+# Note: Year and Month deliberately excluded. Including raw calendar time
+# let the model partly fit a trend line rather than genuine market
+# relationships (confirmed via SHAP - Year was the single most
+# influential feature). Removing them forces the model to rely only on
+# real market indicators, which is more defensible and better reflects
+# the actual goal: predicting freight market movement from economic
+# conditions, not from the passage of time itself.
 target = "BDRY_Price_USD"
 
 X = df[features]
@@ -49,17 +55,54 @@ lr = LinearRegression()
 lr.fit(X_train, y_train)
 r2_lr = evaluate("Linear Regression", lr, X_test, y_test, X_scaled, y)
 
-ridge = Ridge(alpha=1.0)
-ridge.fit(X_train, y_train)
-r2_ridge = evaluate("Ridge Regression", ridge, X_test, y_test, X_scaled, y)
+from sklearn.model_selection import GridSearchCV
 
-rf = RandomForestRegressor(n_estimators=100, max_depth=4, min_samples_leaf=3, random_state=42)
-rf.fit(X_train, y_train)
-r2_rf = evaluate("Random Forest (regularized)", rf, X_test, y_test, X_scaled, y)
+# Hyperparameter tuning: search over a range of alpha values instead of
+# guessing. Alpha controls regularization strength - higher alpha shrinks
+# feature weights more aggressively (helps prevent overfitting on small data).
+ridge_param_grid = {"alpha": [0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0]}
+ridge_grid = GridSearchCV(
+    Ridge(), ridge_param_grid, cv=KFold(n_splits=5, shuffle=True, random_state=42),
+    scoring="r2"
+)
+ridge_grid.fit(X_train, y_train)
+ridge = ridge_grid.best_estimator_
+print(f"\nBest Ridge alpha found: {ridge_grid.best_params_['alpha']}")
+r2_ridge = evaluate("Ridge Regression (tuned)", ridge, X_test, y_test, X_scaled, y)
 
-scores = {"Linear Regression": (r2_lr, lr), "Ridge Regression": (r2_ridge, ridge), "Random Forest": (r2_rf, rf)}
-best_name = max(scores, key=lambda k: scores[k][0])
-best_model = scores[best_name][1]
+
+rf_param_grid = {
+    "n_estimators": [50, 100, 200],
+    "max_depth": [3, 4, 5, 6],
+    "min_samples_leaf": [2, 3, 5]
+}
+rf_grid = GridSearchCV(
+    RandomForestRegressor(random_state=42), rf_param_grid, cv=KFold(n_splits=5, shuffle=True, random_state=42),
+    scoring="r2", n_jobs=-1
+)
+rf_grid.fit(X_train, y_train)
+rf = rf_grid.best_estimator_
+print(f"\nBest Random Forest params found: {rf_grid.best_params_}")
+r2_rf = evaluate("Random Forest (tuned)", rf, X_test, y_test, X_scaled, y)
+
+
+# Select based on cross-validation mean, not single test-split R2 -
+# CV is a far more reliable signal of true generalization performance,
+# especially with a small dataset where one split can be misleading.
+cv_scores = {
+    "Linear Regression": cross_val_score(lr, X_scaled, y, cv=KFold(5, shuffle=True, random_state=42), scoring="r2").mean(),
+    "Ridge Regression": cross_val_score(ridge, X_scaled, y, cv=KFold(5, shuffle=True, random_state=42), scoring="r2").mean(),
+    "Random Forest": cross_val_score(rf, X_scaled, y, cv=KFold(5, shuffle=True, random_state=42), scoring="r2").mean(),
+}
+models = {"Linear Regression": lr, "Ridge Regression": ridge, "Random Forest": rf}
+
+best_name = max(cv_scores, key=cv_scores.get)
+best_model = models[best_name]
+
+print(f"\nModel selection based on 5-Fold CV R2 (more reliable than single test split):")
+for name, score in cv_scores.items():
+    marker = " <- selected" if name == best_name else ""
+    print(f"  {name}: {score:.3f}{marker}")
 
 joblib.dump(best_model, "freight_model.pkl")
 joblib.dump(scaler, "scaler.pkl")

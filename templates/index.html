@@ -117,7 +117,7 @@
                 <label>Origin Port</label>
                 <select name="origin_port" id="origin_port" required>
                     {% for o in origins %}
-                    <option value="{{ o }}">{{ o }}</option>
+                    <option value="{{ o }}" {% if result and result.origin_port == o %}selected{% endif %}>{{ o }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -125,15 +125,15 @@
                 <label>Destination Port</label>
                 <select name="destination_port" id="destination_port" required>
                     {% for d in destinations %}
-                    <option value="{{ d }}">{{ d }}</option>
+                    <option value="{{ d }}" {% if result and result.destination_port == d %}selected{% endif %}>{{ d }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
                 <label>Commodity</label>
                 <select name="commodity" id="commodity" required>
-                    <option value="Coal">Coal</option>
-                    <option value="Iron Ore">Iron Ore</option>
+                    <option value="Coal" {% if result and result.commodity == 'Coal' %}selected{% endif %}>Coal</option>
+                    <option value="Iron Ore" {% if result and result.commodity == 'Iron Ore' %}selected{% endif %}>Iron Ore</option>
                 </select>
             </div>
             <div>
@@ -152,8 +152,6 @@
             <div><label>VIX (Volatility Index)</label><input type="number" step="0.01" name="vix" id="vix" value="16" required></div>
             <div><label>WTI Crude (USD/Barrel)</label><input type="number" step="0.01" name="wti" id="wti" value="60" required></div>
             <div><label>SBLK Stock Price (USD)</label><input type="number" step="0.01" name="sblk" id="sblk" value="18" required></div>
-            <div><label>Month</label><input type="number" name="month" id="month" value="3" min="1" max="12" required></div>
-            <div><label>Year</label><input type="number" name="year" id="year" value="2026" required></div>
         </div>
 
         <div class="btn-row">
