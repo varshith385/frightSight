@@ -23,6 +23,26 @@ vessels = [
     {"name": "Panamax",   "capacity_mt": 75000, "days_to_port": 14, "daily_rate_multiplier": 1.00, "speed_knots": 14, "cii_band": "C"},
 ]
 
+port_master = pd.read_csv("data/port_master.csv")
+
+# Update vessels list to include real draft data
+vessel_drafts = {"Handysize": 10.0, "Supramax": 12.5, "Panamax": 14.5}
+
+
+def check_vessel_port_compatibility(vessel_name, destination_port):
+    port_info = port_master[port_master["Port_Name"] == destination_port]
+    if len(port_info) == 0:
+        return True, None  # unknown port, assume compatible
+    max_draft = port_info.iloc[0]["Max_Draft_M"]
+    requires_lighterage = port_info.iloc[0]["Requires_Lighterage"]
+    vessel_draft = vessel_drafts.get(vessel_name, 0)
+
+    if vessel_draft > max_draft:
+        return False, f"Draft {vessel_draft}m exceeds port limit {max_draft}m — requires lighterage"
+    if requires_lighterage == "Yes":
+        return True, f"Port requires lighterage regardless of vessel (shallow riverine approach)"
+    return True, None
+
 BDRY_MIN, BDRY_MAX = 5, 30
 RATE_MIN, RATE_MAX = 8000, 25000
 
@@ -164,7 +184,7 @@ def get_forecast_trend():
         "chart_forecast": chart_forecast
     }
 
-def recommend_vessel(cargo_quantity_mt, predicted_bdry, distance_nm):
+def recommend_vessel(cargo_quantity_mt, predicted_bdry, distance_nm, destination_port):
     daily_rate_panamax_equiv = bdry_to_daily_rate(predicted_bdry)
     availability, availability_note = bdry_to_availability(predicted_bdry)
     distance_multiplier = get_distance_multiplier(distance_nm)
@@ -176,6 +196,9 @@ def recommend_vessel(cargo_quantity_mt, predicted_bdry, distance_nm):
         total_days = days_per_trip * trips_needed
         total_cost = vessel_daily_rate * total_days * distance_multiplier
         cost_per_mt = total_cost / cargo_quantity_mt
+
+        is_compatible, compatibility_note = check_vessel_port_compatibility(v["name"], destination_port)
+
         results.append({
             "vessel": v["name"],
             "dwt": v["capacity_mt"],
@@ -185,11 +208,14 @@ def recommend_vessel(cargo_quantity_mt, predicted_bdry, distance_nm):
             "daily_rate": round(vessel_daily_rate, 2),
             "cost": round(total_cost, 2),
             "cost_per_mt": round(cost_per_mt, 2),
-            "days": total_days
+            "days": total_days,
+            "is_compatible": is_compatible,
+            "compatibility_note": compatibility_note
         })
-    best = min(results, key=lambda r: r["cost"])
+    # Only recommend from genuinely compatible vessels
+    compatible_results = [r for r in results if r["is_compatible"]]
+    best = min(compatible_results, key=lambda r: r["cost"]) if compatible_results else min(results, key=lambda r: r["cost"])
     return results, best, availability, availability_note
-
 
 @app.route("/glossary")
 def glossary():
@@ -255,7 +281,7 @@ def home():
 
         input_dict = build_full_input(base_values)
         predicted_bdry, lower_bound, upper_bound = predict_bdry(input_dict)
-        comparison, best, availability, availability_note = recommend_vessel(cargo_qty, predicted_bdry, distance_nm)
+        comparison, best, availability, availability_note = recommend_vessel(cargo_qty, predicted_bdry, distance_nm, destination_port)
         risk_score, risk_level = calculate_risk_score(
             latest_data["Oil_Volatility_3M"], latest_data["Coal_Volatility_3M"], base_values["VIX_Value"]
         )

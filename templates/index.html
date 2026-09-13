@@ -188,7 +188,7 @@
         </div>
 
         <table>
-            <tr><th>Vessel</th><th>DWT (MT)</th><th>Speed</th><th>CII</th><th>Trips</th><th>Daily Rate</th><th>Total Cost</th><th>$/MT</th><th>Days</th></tr>
+            <tr><th>Vessel</th><th>DWT (MT)</th><th>Speed</th><th>CII</th><th>Trips</th><th>Daily Rate</th><th>Total Cost</th><th>$/MT</th><th>Days</th><th>Feasibility</th></tr>
             {% for row in result.comparison %}
             <tr class="{% if row.vessel == result.best.vessel %}best-row{% endif %}">
                 <td>{{ row.vessel }}</td>
@@ -200,9 +200,26 @@
                 <td>${{ "{:,.0f}".format(row.cost) }}</td>
                 <td>${{ row.cost_per_mt }}</td>
                 <td>{{ row.days }}</td>
+                <td>
+                    {% if row.is_compatible %}
+                        <span class="badge badge-low">OK</span>
+                    {% else %}
+                        <span class="badge badge-high">⚠ Draft issue</span>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </table>
+
+        {% set incompatible_notes = result.comparison | selectattr("compatibility_note") | list %}
+        {% if incompatible_notes %}
+        <div class="timing-box" style="margin-top:12px; border-left-color:#e39a86;">
+            ⚠️ <strong>Port Feasibility Note:</strong>
+            {% for row in incompatible_notes %}
+                {{ row.vessel }}: {{ row.compatibility_note }}{% if not loop.last %} · {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
 
         <div class="timing-box" style="margin-top:16px; border-left-color:#8fc9bc;">
             ✅ <strong>Recommended: {{ result.best.vessel }}</strong> — ${{ "{:,.2f}".format(result.best.cost) }} freight cost, {{ result.best.days }} days delivery
