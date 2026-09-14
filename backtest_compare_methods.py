@@ -7,11 +7,11 @@ df = pd.read_csv("data/freight_features.csv", parse_dates=["Date"])
 df = df.sort_values("Date").reset_index(drop=True)
 
 series = df.set_index("Date")["BDRY_Price_USD"]
-series.index = pd.DatetimeIndex(series.index).to_period("M").to_timestamp()
-series = series.asfreq("MS").interpolate()
+series = series[~series.index.duplicated(keep='last')]
+series = series.asfreq("W-MON").interpolate()
 
-MIN_TRAIN_SIZE = 24
-FORECAST_HORIZON = 3
+MIN_TRAIN_SIZE = 52
+FORECAST_HORIZON = 12
 
 
 def method_holt_winters(train, horizon):

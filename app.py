@@ -146,8 +146,9 @@ def get_forecast_trend():
     hist = pd.read_csv("data/freight_features.csv", parse_dates=["Date"])
     hist = hist.sort_values("Date").reset_index(drop=True)
     series = hist.set_index("Date")["BDRY_Price_USD"]
-    series.index = pd.DatetimeIndex(series.index).to_period("M").to_timestamp()
-    series = series.asfreq("MS").interpolate()
+    series = series[~series.index.duplicated(keep='last')]
+    series = series.asfreq("W-MON").interpolate()
+
 
     # ARIMA(1,1,1) selected after backtesting against Holt-Winters,
     # naive, moving average, and damped trend methods. ARIMA achieved
@@ -155,7 +156,7 @@ def get_forecast_trend():
     # error in walk-forward validation - see backtest_compare_methods.py
     arima_model = ARIMA(series, order=(1, 1, 1))
     fitted = arima_model.fit()
-    forecast = fitted.forecast(3)
+    forecast = fitted.forecast(12)  # 12 weeks ≈ 3 months
 
     current_value = series.iloc[-1]
     forecast_avg = forecast.mean()
@@ -168,11 +169,11 @@ def get_forecast_trend():
     else:
         trend, timing_advice = "STABLE", "Market is stable — booking timing is flexible."
 
-    chart_history = series.tail(12)
-    chart_labels = [d.strftime("%b %y") for d in chart_history.index] + [d.strftime("%b %y") for d in forecast.index]
-    chart_actual = [round(v, 2) for v in chart_history.values] + [None, None, None]
+    chart_history = series.tail(16)  # show last 16 weeks (~4 months) of history
+    chart_labels = [d.strftime("%b %d") for d in chart_history.index] + [d.strftime("%b %d") for d in forecast.index]
+    chart_actual = [round(v, 2) for v in chart_history.values] + [None] * len(forecast)
     chart_forecast = [None] * (len(chart_history) - 1) + [round(chart_history.values[-1], 2)] + [round(v, 2) for v in forecast.values]
-
+    
     return {
         "current_bdry": round(current_value, 2),
         "forecast_3m_avg": round(forecast_avg, 2),
@@ -220,6 +221,59 @@ def recommend_vessel(cargo_quantity_mt, predicted_bdry, distance_nm, destination
 @app.route("/glossary")
 def glossary():
     return render_template("glossary.html")
+
+@app.route("/compare-routes", methods=["POST"])
+def compare_routes():
+    cargo_qty = float(request.form["cargo_qty"])
+    commodity = request.form["commodity"]
+
+    base_values = {
+        "Coal_Price_USD_per_MT": float(request.form["coal_price"]),
+        "Oil_Price_USD_per_Barrel": float(request.form["oil_price"]),
+        "IronOre_Price_USD_per_MT": float(request.form["ironore_price"]),
+        "NaturalGas_Price_USD_per_MMBtu": float(request.form["natgas_price"]),
+        "USD_INR": float(request.form["usd_inr"]),
+        "VIX_Value": float(request.form["vix"]),
+        "WTI_Price_USD": float(request.form["wti"]),
+        "SBLK_Price_USD": float(request.form["sblk"]),
+    }
+
+    commodity_price = base_values["Coal_Price_USD_per_MT"] if commodity == "Coal" else base_values["IronOre_Price_USD_per_MT"]
+    cargo_value_usd = commodity_price * cargo_qty
+    bcd_pct, igst_pct = get_tariff_info(commodity)
+
+    input_dict = build_full_input(base_values)
+    predicted_bdry, lower_bound, upper_bound = predict_bdry(input_dict)
+
+    all_routes = []
+    for _, route in route_data.iterrows():
+        origin = route["Origin_Port"]
+        destination = route["Destination_Port"]
+        distance_nm = route["Distance_NM"]
+
+        comparison, best, availability, availability_note = recommend_vessel(cargo_qty, predicted_bdry, distance_nm, destination)
+        landed_cost = calculate_landed_cost(best["cost"], cargo_value_usd, bcd_pct, igst_pct)
+
+        all_routes.append({
+            "origin": origin,
+            "destination": destination,
+            "distance_nm": round(distance_nm, 1),
+            "best_vessel": best["vessel"],
+            "freight_cost": best["cost"],
+            "total_landed_cost": landed_cost["total_landed_cost"],
+            "days": best["days"],
+            "is_compatible": best["is_compatible"]
+        })
+
+    all_routes.sort(key=lambda r: r["total_landed_cost"])
+
+    return render_template(
+        "compare_routes.html",
+        routes=all_routes,
+        predicted_bdry=round(predicted_bdry, 2),
+        cargo_qty=cargo_qty,
+        commodity=commodity
+    )
 
 
 @app.route("/autofill", methods=["GET"])

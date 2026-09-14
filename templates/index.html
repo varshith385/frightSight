@@ -156,9 +156,11 @@
 
         <div class="btn-row">
             <button type="button" class="autofill-btn" onclick="autofill()">🌐 Autofill Live Data</button>
-            <button type="submit" class="predict-btn">Run Prediction</button>
+            <button type="submit" class="predict-btn" id="predict-btn">Run Prediction</button>
+            <button type="submit" formaction="/compare-routes" class="autofill-btn">📊 Compare All Routes</button>
         </div>
         <div id="autofill-status"></div>
+        <div id="validation-error" style="display:none; color:#e39a86; font-size:13px; margin-top:8px;"></div>
     </form>
 
     {% if result %}
@@ -294,6 +296,34 @@
             }
         }
     });
+    document.getElementById("predict-form").addEventListener("submit", function(e) {
+    const cargoQty = parseFloat(document.getElementById("cargo_qty").value);
+    const coalPrice = parseFloat(document.getElementById("coal_price").value);
+    const oilPrice = parseFloat(document.getElementById("oil_price").value);
+    const errorBox = document.getElementById("validation-error");
+
+    let errors = [];
+    if (cargoQty <= 0) errors.push("Cargo quantity must be greater than 0");
+    if (coalPrice <= 0) errors.push("Coal price must be greater than 0");
+    if (oilPrice <= 0) errors.push("Oil price must be greater than 0");
+    if (cargoQty > 500000) errors.push("Cargo quantity seems unrealistically high (max 500,000 MT)");
+
+    if (errors.length > 0) {
+        e.preventDefault();
+        errorBox.style.display = "block";
+        errorBox.innerText = "⚠ " + errors.join(" · ");
+        return false;
+    }
+
+    errorBox.style.display = "none";
+    const btn = document.getElementById("predict-btn");
+    btn.innerText = "Calculating...";
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    btn.style.cursor = "not-allowed";
+});
+
+
 </script>
 </body>
 </html>

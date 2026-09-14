@@ -15,47 +15,41 @@ df["IronOre_Price_USD_per_MT"] = pd.to_numeric(df["IronOre_Price_USD_per_MT"], e
 df["NaturalGas_Price_USD_per_MMBtu"] = pd.to_numeric(df["NaturalGas_Price_USD_per_MMBtu"], errors="coerce")
 
 df = df.dropna()
-
 df["Date"] = pd.to_datetime(df["Date"], format="%YM%m")
-df = df.reset_index(drop=True)
+df = df.set_index("Date").sort_index()
 
-# --- Merge in USD/INR exchange rate (real data) ---
+# --- Resample monthly commodity data to weekly using forward-fill ---
+# This is a standard, legitimate technique for mixed-frequency data:
+# we carry forward the last REAL published monthly value until the next
+# real value is published - not inventing new numbers, just correctly
+# representing "this was the latest known price during this week."
+weekly_index = pd.date_range(start=df.index.min(), end=df.index.max(), freq="W-MON")
+df_weekly = df.reindex(df.index.union(weekly_index)).sort_index().ffill()
+df_weekly = df_weekly.reindex(weekly_index)
+df_weekly = df_weekly.reset_index().rename(columns={"index": "Date"})
+
+# --- Merge in USD/INR (resample real daily data to weekly average) ---
 fx = pd.read_csv("data/usdinr.csv", parse_dates=["Date"])
-fx["YearMonth"] = fx["Date"].dt.to_period("M")
-fx_monthly = fx.groupby("YearMonth")["USD_INR"].mean().reset_index()
-fx_monthly["Date"] = fx_monthly["YearMonth"].dt.to_timestamp()
-fx_monthly = fx_monthly[["Date", "USD_INR"]]
+fx = fx.set_index("Date").sort_index()
+fx_weekly = fx["USD_INR"].resample("W-MON").mean().reset_index()
 
-df["YearMonth"] = df["Date"].dt.to_period("M")
-fx_monthly["YearMonth"] = fx_monthly["Date"].dt.to_period("M")
+df_weekly["Date"] = pd.to_datetime(df_weekly["Date"])
+fx_weekly["Date"] = pd.to_datetime(fx_weekly["Date"])
+df_weekly = pd.merge_asof(df_weekly.sort_values("Date"), fx_weekly.sort_values("Date"), on="Date", direction="nearest")
 
-df = df.merge(fx_monthly[["YearMonth", "USD_INR"]], on="YearMonth", how="left")
-df = df.drop(columns=["YearMonth"])
-
-# --- Merge in BDRY (real dry bulk freight market proxy) ---
-bdry = pd.read_csv("data/bdry.csv", parse_dates=["Date"])
-bdry["YearMonth"] = bdry["Date"].dt.to_period("M")
-bdry = bdry[["YearMonth", "BDRY_Price_USD"]]
-
-df["YearMonth"] = df["Date"].dt.to_period("M")
-df = df.merge(bdry, on="YearMonth", how="left")
-df = df.drop(columns=["YearMonth"])
-
-# --- Merge in VIX, WTI, SBLK (real market indicators) ---
-for fname, col in [("vix.csv", "VIX_Value"), ("wti.csv", "WTI_Price_USD"), ("sblk.csv", "SBLK_Price_USD")]:
+# --- Merge in BDRY, SEA, VIX, WTI, SBLK (already real weekly data) ---
+for fname, col in [("bdry.csv", "BDRY_Price_USD"), ("sea.csv", "SEA_Price_USD"),
+                     ("vix.csv", "VIX_Value"), ("wti.csv", "WTI_Price_USD"),
+                     ("sblk.csv", "SBLK_Price_USD")]:
     extra = pd.read_csv(f"data/{fname}", parse_dates=["Date"])
-    extra["YearMonth"] = extra["Date"].dt.to_period("M")
-    extra = extra[["YearMonth", col]]
+    extra = extra.sort_values("Date")
+    df_weekly = pd.merge_asof(df_weekly.sort_values("Date"), extra, on="Date", direction="nearest", tolerance=pd.Timedelta("4D"))
 
-    df["YearMonth"] = df["Date"].dt.to_period("M")
-    df = df.merge(extra, on="YearMonth", how="left")
-    df = df.drop(columns=["YearMonth"])
-
-print(df.head(5))
+print(df_weekly.head(5))
 print("...")
-print(df.tail(5))
-print("\nTotal usable rows:", len(df))
-print("Date range:", df["Date"].min(), "to", df["Date"].max())
+print(df_weekly.tail(5))
+print("\nTotal usable rows:", len(df_weekly))
+print("Date range:", df_weekly["Date"].min(), "to", df_weekly["Date"].max())
 
-df.to_csv("data/freight_base_data.csv", index=False)
-print("\nSaved cleaned data to data/freight_base_data.csv")
+df_weekly.to_csv("data/freight_base_data.csv", index=False)
+print("\nSaved weekly dataset to data/freight_base_data.csv")

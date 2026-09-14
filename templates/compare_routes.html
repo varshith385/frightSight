@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>frightSight — Route Comparison</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #0f1b2d;
+            color: #e8e6df;
+            margin: 0;
+            padding: 36px 20px;
+            line-height: 1.5;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        h1 { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600; color: #f2ead9; margin: 0; }
+        .back-link { color: #9aa5b1; text-decoration: none; font-size: 13px; border: 1px solid #2c3e58; padding: 8px 14px; border-radius: 6px; }
+        .back-link:hover { border-color: #c9924f; color: #c9924f; }
+        .subtitle { color: #9aa5b1; margin-bottom: 26px; font-size: 14px; }
+
+        .card { background: #16253b; border: 1px solid #24354e; border-radius: 10px; padding: 22px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+        td, th { padding: 12px 10px; border-bottom: 1px solid #223349; text-align: left; color: #d8d3c4; }
+        th { color: #8b96a3; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.3px; }
+        .best-row { background: rgba(90,160,150,0.1); }
+        .best-row td { color: #8fc9bc; font-weight: 600; }
+        .rank { font-family: 'Fraunces', serif; color: #c9924f; font-weight: 600; }
+        .warn { color: #e39a86; font-size: 11px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📊 Route Comparison</h1>
+        <a href="/" class="back-link">← Back to Dashboard</a>
+    </div>
+    <p class="subtitle">{{ commodity }}, {{ "{:,.0f}".format(cargo_qty) }} MT — ranked by total landed cost, lowest first. Predicted BDRY: {{ predicted_bdry }}</p>
+
+    <div class="card">
+        <table>
+            <tr>
+                <th>#</th><th>Origin</th><th>Destination</th><th>Distance</th>
+                <th>Best Vessel</th><th>Freight Cost</th><th>Total Landed Cost</th><th>Days</th>
+            </tr>
+            {% for r in routes %}
+            <tr class="{% if loop.index == 1 %}best-row{% endif %}">
+                <td class="rank">{{ loop.index }}</td>
+                <td>{{ r.origin }}</td>
+                <td>{{ r.destination }}</td>
+                <td>{{ r.distance_nm }} nm</td>
+                <td>{{ r.best_vessel }}{% if not r.is_compatible %} <span class="warn">⚠ draft</span>{% endif %}</td>
+                <td>${{ "{:,.0f}".format(r.freight_cost) }}</td>
+                <td>${{ "{:,.0f}".format(r.total_landed_cost) }}</td>
+                <td>{{ r.days }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+</body>
+</html>

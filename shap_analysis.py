@@ -15,7 +15,7 @@ X_scaled_df = pd.DataFrame(X_scaled, columns=feature_list)
 
 # LinearExplainer is the correct, exact SHAP method for linear/ridge models
 # (much faster and more precise than the general-purpose KernelExplainer)
-explainer = shap.LinearExplainer(model, X_scaled_df)
+explainer = shap.TreeExplainer(model)
 shap_values = explainer(X_scaled_df)
 
 # --- Overall feature importance (mean absolute SHAP value per feature) ---
@@ -40,7 +40,10 @@ print("Saved chart to shap_summary.png")
 # --- Explain ONE specific prediction (the most recent real data point) ---
 latest_idx = len(X_scaled_df) - 1
 print(f"\n--- Explanation for most recent data point (row {latest_idx}) ---")
-print(f"Base value (average prediction): {explainer.expected_value:.2f}")
+expected_val = explainer.expected_value
+if hasattr(expected_val, "__len__"):
+    expected_val = expected_val[0]
+print(f"Base value (average prediction): {expected_val:.2f}")
 print(f"Actual prediction for this point: {model.predict(X_scaled_df.iloc[[latest_idx]])[0]:.2f}")
 print("\nTop 5 contributing features for this specific prediction:")
 single_shap = pd.DataFrame({

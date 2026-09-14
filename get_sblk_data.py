@@ -1,10 +1,10 @@
 import yfinance as yf
 import pandas as pd
 
-print("Fetching Star Bulk Carriers (SBLK) historical data...")
+print("Fetching Star Bulk Carriers (SBLK) weekly historical data...")
 
 sblk = yf.Ticker("SBLK")
-hist = sblk.history(start="2010-01-01", end="2025-12-31", interval="1mo")
+hist = sblk.history(start="2010-01-01", end="2025-12-31", interval="1wk")
 
 hist = hist.reset_index()
 hist["Date"] = pd.to_datetime(hist["Date"]).dt.tz_localize(None)
