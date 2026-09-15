@@ -26,6 +26,13 @@
         .term-what { color: #d8d3c4; font-size: 14px; margin-bottom: 10px; line-height: 1.55; }
         .term-why { color: #9aa5b1; font-size: 13px; line-height: 1.55; border-top: 1px solid #223349; padding-top: 10px; margin-top: 10px; }
         .term-why b { color: #cbd5c8; }
+
+        @media (max-width: 640px) {
+            body { padding: 20px 14px; }
+            h1 { font-size: 22px; }
+            .header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .term-card { padding: 14px 16px; }
+        }
     </style>
 </head>
 <body>
@@ -69,14 +76,14 @@
     </div>
 
     <div class="term-card">
-        <div class="term-name">MA3 (3-Month Moving Average)</div>
-        <div class="term-what">The average of a value over the past 3 months, smoothing out short-term noise to reveal the underlying trend.</div>
-        <div class="term-why"><b>Why it matters:</b> A single month's price can spike due to one-off events; the 3-month average gives the model a steadier signal of where the market is actually heading.</div>
+        <div class="term-name">MA3 (Moving Average)</div>
+        <div class="term-what">The average of a value over recent periods, smoothing out short-term noise to reveal the underlying trend.</div>
+        <div class="term-why"><b>Why it matters:</b> A single period's price can spike due to one-off events; the moving average gives the model a steadier signal of where the market is actually heading.</div>
     </div>
 
     <div class="term-card">
-        <div class="term-name">Volatility (3-Month)</div>
-        <div class="term-what">The statistical standard deviation of a price over the past 3 months — a measure of how much it's been swinging up and down.</div>
+        <div class="term-name">Volatility</div>
+        <div class="term-what">The statistical standard deviation of a price over recent periods — a measure of how much it's been swinging up and down.</div>
         <div class="term-why"><b>Why it matters:</b> High volatility in oil or coal prices signals an unstable market, which raises the risk of unexpected freight cost changes — feeds directly into the Risk Score.</div>
     </div>
 
@@ -102,14 +109,14 @@
 
     <div class="term-card">
         <div class="term-name">R² (Model Accuracy Score)</div>
-        <div class="term-what">A statistical score (0 to 1) showing how well the model's predictions match real outcomes. Closer to 1 means better fit. Our model scores ~0.75-0.85 depending on the test split.</div>
+        <div class="term-what">A statistical score (0 to 1) showing how well the model's predictions match real outcomes. Closer to 1 means better fit.</div>
         <div class="term-why"><b>Why it matters:</b> This is the standard way to report whether a prediction model is actually working, not just guessing.</div>
     </div>
 
     <div class="term-card">
-        <div class="term-name">Ridge Regression</div>
-        <div class="term-what">The specific machine learning algorithm used, chosen after comparing it against Linear Regression and Random Forest. Ridge performs best here because it handles many correlated features without overfitting on a smaller dataset.</div>
-        <div class="term-why"><b>Why it matters:</b> Shows the model choice was deliberate and tested, not arbitrary.</div>
+        <div class="term-name">Random Forest</div>
+        <div class="term-what">The machine learning algorithm used, selected after comparing it against Linear and Ridge Regression via cross-validation on a dataset of 400 real weekly data points.</div>
+        <div class="term-why"><b>Why it matters:</b> Shows the model choice was deliberate and evidence-based, not arbitrary.</div>
     </div>
 
     <div class="term-card">
@@ -118,11 +125,17 @@
         <div class="term-why"><b>Why it matters:</b> Confirms the model's accuracy is stable and not just a lucky result from one particular train/test split.</div>
     </div>
 
+    <div class="term-card">
+        <div class="term-name">SHAP</div>
+        <div class="term-what">A technique that explains exactly how much each input feature contributed to a specific prediction, in either direction.</div>
+        <div class="term-why"><b>Why it matters:</b> Makes the model's reasoning transparent rather than a black box — and was used to catch and remove a flawed feature (calendar Year) that was inflating accuracy artificially.</div>
+    </div>
+
     <div class="section-title">Forecast</div>
 
     <div class="term-card">
         <div class="term-name">3-Month Forecast Avg</div>
-        <div class="term-what">The average predicted BDRY value over the next 3 months, calculated using Holt-Winters Exponential Smoothing — a real, established time-series forecasting method.</div>
+        <div class="term-what">The average predicted BDRY value over the next 3 months, calculated using ARIMA — selected after backtesting five different forecasting methods.</div>
         <div class="term-why"><b>Why it matters:</b> This is what lets the system answer "is the market going up or down," not just "what's the price right now."</div>
     </div>
 
@@ -164,6 +177,12 @@
         <div class="term-why"><b>Why it matters:</b> Increasingly relevant for compliance and cost — vessels with poor CII ratings may face operational restrictions or higher costs in the near future.</div>
     </div>
 
+    <div class="term-card">
+        <div class="term-name">Draft / Feasibility Check</div>
+        <div class="term-what">Compares a vessel's real draft (how deep it sits in water) against a port's real maximum draft limit. Kolkata specifically requires lighterage (transfer to smaller vessels) due to its shallow riverine approach.</div>
+        <div class="term-why"><b>Why it matters:</b> Prevents recommending a vessel that physically cannot dock at the chosen port — a real, documented operational constraint for India's East Coast ports.</div>
+    </div>
+
     <div class="section-title">Route & Tariff</div>
 
     <div class="term-card">
@@ -175,7 +194,7 @@
     <div class="term-card">
         <div class="term-name">BCD (Basic Customs Duty) / IGST</div>
         <div class="term-what">Real Indian import tax categories — BCD is the base import duty, IGST is the Integrated Goods and Services Tax applied to imports. For coal and iron ore, BCD is typically 0% and IGST is 5%.</div>
-        <div class="term-why"><b>Why it matters:</b> These are real added costs on top of freight that affect the total landed cost of imported cargo — relevant for a complete procurement decision, even though not yet included in this model's live calculation.</div>
+        <div class="term-why"><b>Why it matters:</b> These are real added costs on top of freight that affect the total landed cost of imported cargo.</div>
     </div>
 
 </div>

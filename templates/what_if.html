@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>frightSight — What-If Scenarios</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #0f1b2d;
+            color: #e8e6df;
+            margin: 0;
+            padding: 36px 20px;
+            line-height: 1.5;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        h1 { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600; color: #f2ead9; margin: 0; }
+        .back-link { color: #9aa5b1; text-decoration: none; font-size: 13px; border: 1px solid #2c3e58; padding: 8px 14px; border-radius: 6px; }
+        .back-link:hover { border-color: #c9924f; color: #c9924f; }
+        .subtitle { color: #9aa5b1; margin-bottom: 26px; font-size: 14px; }
+
+        .card { background: #16253b; border: 1px solid #24354e; border-radius: 10px; padding: 22px; margin-bottom: 14px; }
+        .card.baseline { border-color: #c9924f; }
+
+        .scenario-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+        .scenario-name { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 600; color: #f2ead9; }
+        .delta { font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 4px; }
+        .delta-up { background: rgba(200,90,70,0.18); color: #e39a86; }
+        .delta-down { background: rgba(90,160,150,0.18); color: #8fc9bc; }
+        .delta-neutral { background: rgba(201,146,79,0.18); color: #d9ad72; }
+
+        .scenario-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .stat { text-align: center; }
+        .stat-num { font-family: 'Fraunces', serif; font-size: 17px; font-weight: 600; color: #c9924f; }
+        .stat-lbl { font-size: 10.5px; color: #8b96a3; text-transform: uppercase; margin-top: 2px; }
+
+        .footer-note { font-size: 11px; color: #6b7686; margin-top: 24px; line-height: 1.6; }
+
+        @media (max-width: 640px) {
+            body { padding: 20px 14px; }
+            h1 { font-size: 22px; }
+            .header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .scenario-stats { grid-template-columns: repeat(2, 1fr); }
+            .card { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🧪 What-If Scenario Analysis</h1>
+        <a href="/" class="back-link">← Back to Dashboard</a>
+    </div>
+    <p class="subtitle">{{ commodity }}, {{ "{:,.0f}".format(cargo_qty) }} MT, {{ origin_port }} → {{ destination_port }} — how market shocks affect your procurement cost</p>
+
+    {% for s in scenarios %}
+    <div class="card {% if s.key == 'baseline' %}baseline{% endif %}">
+        <div class="scenario-header">
+            <div class="scenario-name">{{ s.label }}</div>
+            {% if s.key != 'baseline' %}
+                {% if s.delta_pct > 1 %}
+                <span class="delta delta-up">+{{ "%.1f"|format(s.delta_pct) }}% total cost vs baseline</span>
+                {% elif s.delta_pct < -1 %}
+                <span class="delta delta-down">{{ "%.1f"|format(s.delta_pct) }}% total cost vs baseline</span>
+                {% else %}
+                <span class="delta delta-neutral">~unchanged</span>
+                {% endif %}
+            {% endif %}
+        </div>
+        <div class="scenario-stats">
+            <div class="stat">
+                <div class="stat-num">{{ s.predicted_bdry }}</div>
+                <div class="stat-lbl">Predicted BDRY</div>
+            </div>
+            <div class="stat">
+                <div class="stat-num">${{ "{:,.0f}".format(s.freight_cost) }}</div>
+                <div class="stat-lbl">Freight Cost {% if s.key != 'baseline' %}({{ "%+.1f"|format(s.freight_delta_pct) }}%){% endif %}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-num">${{ "{:,.0f}".format(s.cargo_value) }}</div>
+                <div class="stat-lbl">Cargo Value</div>
+            </div>
+            <div class="stat">
+                <div class="stat-num">${{ "{:,.0f}".format(s.total_landed_cost) }}</div>
+                <div class="stat-lbl">Total Landed Cost</div>
+            </div>
+        </div>
+        <p style="font-size:11px; color:#6b7686; margin-top:10px;">Best vessel: {{ s.best_vessel }} · {{ s.days }} days delivery</p>
+    </div>
+    {% endfor %}
+
+    <p class="footer-note">Scenarios apply hypothetical percentage shocks to oil price, coal price, and USD/INR exchange rate, then re-run the full prediction pipeline (model → vessel selection → landed cost) for each. Freight Cost reacts primarily to oil/market conditions; Cargo Value scales directly with commodity price — this is why coal-price scenarios move Total Landed Cost more than oil-price scenarios, reflecting real bulk shipping economics where cargo value typically exceeds freight cost.</p>
+</div>
+</body>
+</html>

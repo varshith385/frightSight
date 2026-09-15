@@ -23,25 +23,7 @@ vessels = [
     {"name": "Panamax",   "capacity_mt": 75000, "days_to_port": 14, "daily_rate_multiplier": 1.00, "speed_knots": 14, "cii_band": "C"},
 ]
 
-port_master = pd.read_csv("data/port_master.csv")
-
-# Update vessels list to include real draft data
 vessel_drafts = {"Handysize": 10.0, "Supramax": 12.5, "Panamax": 14.5}
-
-
-def check_vessel_port_compatibility(vessel_name, destination_port):
-    port_info = port_master[port_master["Port_Name"] == destination_port]
-    if len(port_info) == 0:
-        return True, None  # unknown port, assume compatible
-    max_draft = port_info.iloc[0]["Max_Draft_M"]
-    requires_lighterage = port_info.iloc[0]["Requires_Lighterage"]
-    vessel_draft = vessel_drafts.get(vessel_name, 0)
-
-    if vessel_draft > max_draft:
-        return False, f"Draft {vessel_draft}m exceeds port limit {max_draft}m — requires lighterage"
-    if requires_lighterage == "Yes":
-        return True, f"Port requires lighterage regardless of vessel (shallow riverine approach)"
-    return True, None
 
 BDRY_MIN, BDRY_MAX = 5, 30
 RATE_MIN, RATE_MAX = 8000, 25000
@@ -49,9 +31,20 @@ RATE_MIN, RATE_MAX = 8000, 25000
 latest_data = pd.read_csv("data/freight_features.csv").iloc[-1]
 route_data = pd.read_csv("data/route_data.csv")
 tariff_data = pd.read_csv("data/tax_tariff_data.csv")
+port_master = pd.read_csv("data/port_master.csv")
 
 REFERENCE_DISTANCE_NM = 2800
 VESSEL_SPEED_KNOTS = 14
+
+# Predefined market shock scenarios for the What-If simulator
+SCENARIOS = {
+    "baseline": {"label": "Current (Baseline)", "oil_pct": 0, "coal_pct": 0, "usd_inr_pct": 0},
+    "oil_spike": {"label": "Oil Price +15%", "oil_pct": 15, "coal_pct": 0, "usd_inr_pct": 0},
+    "oil_drop": {"label": "Oil Price -15%", "oil_pct": -15, "coal_pct": 0, "usd_inr_pct": 0},
+    "coal_demand_surge": {"label": "Coal Demand Surge (+20%)", "oil_pct": 0, "coal_pct": 20, "usd_inr_pct": 0},
+    "rupee_weakens": {"label": "Rupee Weakens (+8% USD/INR)", "oil_pct": 0, "coal_pct": 0, "usd_inr_pct": 8},
+    "combined_stress": {"label": "Combined Stress (Oil+Coal+INR all worsen)", "oil_pct": 12, "coal_pct": 10, "usd_inr_pct": 6},
+}
 
 
 def get_route_distance(origin_port, destination_port):
@@ -116,6 +109,21 @@ def calculate_risk_score(oil_vol, coal_vol, vix):
     return round(composite, 1), level
 
 
+def check_vessel_port_compatibility(vessel_name, destination_port):
+    port_info = port_master[port_master["Port_Name"] == destination_port]
+    if len(port_info) == 0:
+        return True, None
+    max_draft = port_info.iloc[0]["Max_Draft_M"]
+    requires_lighterage = port_info.iloc[0]["Requires_Lighterage"]
+    vessel_draft = vessel_drafts.get(vessel_name, 0)
+
+    if vessel_draft > max_draft:
+        return False, f"Draft {vessel_draft}m exceeds port limit {max_draft}m — requires lighterage"
+    if requires_lighterage == "Yes":
+        return True, f"Port requires lighterage regardless of vessel (shallow riverine approach)"
+    return True, None
+
+
 def build_full_input(base_values):
     row = dict(base_values)
     row["Coal_MA3"] = base_values["Coal_Price_USD_per_MT"]
@@ -140,8 +148,6 @@ def predict_bdry(input_dict):
     return prediction, lower, upper
 
 
-from statsmodels.tsa.arima.model import ARIMA
-
 def get_forecast_trend():
     hist = pd.read_csv("data/freight_features.csv", parse_dates=["Date"])
     hist = hist.sort_values("Date").reset_index(drop=True)
@@ -149,14 +155,9 @@ def get_forecast_trend():
     series = series[~series.index.duplicated(keep='last')]
     series = series.asfreq("W-MON").interpolate()
 
-
-    # ARIMA(1,1,1) selected after backtesting against Holt-Winters,
-    # naive, moving average, and damped trend methods. ARIMA achieved
-    # the best directional accuracy (61.7% vs 50% baseline) and lowest
-    # error in walk-forward validation - see backtest_compare_methods.py
     arima_model = ARIMA(series, order=(1, 1, 1))
     fitted = arima_model.fit()
-    forecast = fitted.forecast(12)  # 12 weeks ≈ 3 months
+    forecast = fitted.forecast(12)
 
     current_value = series.iloc[-1]
     forecast_avg = forecast.mean()
@@ -169,11 +170,11 @@ def get_forecast_trend():
     else:
         trend, timing_advice = "STABLE", "Market is stable — booking timing is flexible."
 
-    chart_history = series.tail(16)  # show last 16 weeks (~4 months) of history
+    chart_history = series.tail(16)
     chart_labels = [d.strftime("%b %d") for d in chart_history.index] + [d.strftime("%b %d") for d in forecast.index]
     chart_actual = [round(v, 2) for v in chart_history.values] + [None] * len(forecast)
     chart_forecast = [None] * (len(chart_history) - 1) + [round(chart_history.values[-1], 2)] + [round(v, 2) for v in forecast.values]
-    
+
     return {
         "current_bdry": round(current_value, 2),
         "forecast_3m_avg": round(forecast_avg, 2),
@@ -184,6 +185,7 @@ def get_forecast_trend():
         "chart_actual": chart_actual,
         "chart_forecast": chart_forecast
     }
+
 
 def recommend_vessel(cargo_quantity_mt, predicted_bdry, distance_nm, destination_port):
     daily_rate_panamax_equiv = bdry_to_daily_rate(predicted_bdry)
@@ -213,14 +215,69 @@ def recommend_vessel(cargo_quantity_mt, predicted_bdry, distance_nm, destination
             "is_compatible": is_compatible,
             "compatibility_note": compatibility_note
         })
-    # Only recommend from genuinely compatible vessels
     compatible_results = [r for r in results if r["is_compatible"]]
     best = min(compatible_results, key=lambda r: r["cost"]) if compatible_results else min(results, key=lambda r: r["cost"])
     return results, best, availability, availability_note
 
+
+def run_scenario(base_values, scenario_key, cargo_qty, destination_port, distance_nm, bcd_pct, igst_pct, commodity_price_field):
+    scenario = SCENARIOS[scenario_key]
+    adjusted = dict(base_values)
+    adjusted["Oil_Price_USD_per_Barrel"] *= (1 + scenario["oil_pct"] / 100)
+    adjusted["Coal_Price_USD_per_MT"] *= (1 + scenario["coal_pct"] / 100)
+    adjusted["USD_INR"] *= (1 + scenario["usd_inr_pct"] / 100)
+
+    input_dict = build_full_input(adjusted)
+    predicted_bdry, lower_bound, upper_bound = predict_bdry(input_dict)
+    comparison, best, availability, availability_note = recommend_vessel(cargo_qty, predicted_bdry, distance_nm, destination_port)
+
+    cargo_value_usd = adjusted[commodity_price_field] * cargo_qty
+    landed_cost = calculate_landed_cost(best["cost"], cargo_value_usd, bcd_pct, igst_pct)
+
+    return {
+        "label": scenario["label"],
+        "predicted_bdry": round(predicted_bdry, 2),
+        "best_vessel": best["vessel"],
+        "freight_cost": best["cost"],
+        "cargo_value": round(cargo_value_usd, 2),
+        "total_landed_cost": landed_cost["total_landed_cost"],
+        "days": best["days"]
+    }
+
+
 @app.route("/glossary")
 def glossary():
     return render_template("glossary.html")
+
+
+@app.route("/autofill", methods=["GET"])
+def autofill():
+    values = {
+        "coal_price": round(float(latest_data["Coal_Price_USD_per_MT"]), 2),
+        "ironore_price": round(float(latest_data["IronOre_Price_USD_per_MT"]), 2),
+        "natgas_price": round(float(latest_data["NaturalGas_Price_USD_per_MMBtu"]), 2),
+        "usd_inr": round(float(latest_data["USD_INR"]), 2),
+        "vix": round(float(latest_data["VIX_Value"]), 2),
+        "wti": round(float(latest_data["WTI_Price_USD"]), 2),
+        "sblk": round(float(latest_data["SBLK_Price_USD"]), 2),
+    }
+    source_note = "Oil = live; others = latest known real data"
+
+    try:
+        response = requests.get(
+            "https://api.api-ninjas.com/v1/oilprice?type=brent",
+            headers={"X-Api-Key": API_NINJAS_KEY},
+            timeout=5
+        )
+        oil_data = response.json()
+        values["oil_price"] = round(float(oil_data.get("price", latest_data["Oil_Price_USD_per_Barrel"])), 2)
+    except Exception:
+        values["oil_price"] = round(float(latest_data["Oil_Price_USD_per_Barrel"]), 2)
+        source_note = "Live fetch failed — used latest known values"
+
+    values["source_note"] = source_note
+    return jsonify(values)
+
 
 @app.route("/compare-routes", methods=["POST"])
 def compare_routes():
@@ -276,33 +333,50 @@ def compare_routes():
     )
 
 
-@app.route("/autofill", methods=["GET"])
-def autofill():
-    values = {
-        "coal_price": round(float(latest_data["Coal_Price_USD_per_MT"]), 2),
-        "ironore_price": round(float(latest_data["IronOre_Price_USD_per_MT"]), 2),
-        "natgas_price": round(float(latest_data["NaturalGas_Price_USD_per_MMBtu"]), 2),
-        "usd_inr": round(float(latest_data["USD_INR"]), 2),
-        "vix": round(float(latest_data["VIX_Value"]), 2),
-        "wti": round(float(latest_data["WTI_Price_USD"]), 2),
-        "sblk": round(float(latest_data["SBLK_Price_USD"]), 2),
+@app.route("/what-if", methods=["POST"])
+def what_if():
+    cargo_qty = float(request.form["cargo_qty"])
+    origin_port = request.form["origin_port"]
+    destination_port = request.form["destination_port"]
+    commodity = request.form["commodity"]
+
+    distance_nm = get_route_distance(origin_port, destination_port)
+    bcd_pct, igst_pct = get_tariff_info(commodity)
+
+    base_values = {
+        "Coal_Price_USD_per_MT": float(request.form["coal_price"]),
+        "Oil_Price_USD_per_Barrel": float(request.form["oil_price"]),
+        "IronOre_Price_USD_per_MT": float(request.form["ironore_price"]),
+        "NaturalGas_Price_USD_per_MMBtu": float(request.form["natgas_price"]),
+        "USD_INR": float(request.form["usd_inr"]),
+        "VIX_Value": float(request.form["vix"]),
+        "WTI_Price_USD": float(request.form["wti"]),
+        "SBLK_Price_USD": float(request.form["sblk"]),
     }
-    source_note = "Oil = live; others = latest known real data"
 
-    try:
-        response = requests.get(
-            "https://api.api-ninjas.com/v1/oilprice?type=brent",
-            headers={"X-Api-Key": API_NINJAS_KEY},
-            timeout=5
-        )
-        oil_data = response.json()
-        values["oil_price"] = round(float(oil_data.get("price", latest_data["Oil_Price_USD_per_Barrel"])), 2)
-    except Exception:
-        values["oil_price"] = round(float(latest_data["Oil_Price_USD_per_Barrel"]), 2)
-        source_note = "Live fetch failed — used latest known values"
+    commodity_price_field = "Coal_Price_USD_per_MT" if commodity == "Coal" else "IronOre_Price_USD_per_MT"
 
-    values["source_note"] = source_note
-    return jsonify(values)
+    scenario_results = []
+    for key in SCENARIOS:
+        result = run_scenario(base_values, key, cargo_qty, destination_port, distance_nm, bcd_pct, igst_pct, commodity_price_field)
+        result["key"] = key
+        scenario_results.append(result)
+
+    baseline_cost = scenario_results[0]["total_landed_cost"]
+    baseline_freight = scenario_results[0]["freight_cost"]
+    for r in scenario_results:
+        r["delta_vs_baseline"] = r["total_landed_cost"] - baseline_cost
+        r["delta_pct"] = (r["delta_vs_baseline"] / baseline_cost) * 100 if baseline_cost else 0
+        r["freight_delta_pct"] = ((r["freight_cost"] - baseline_freight) / baseline_freight) * 100 if baseline_freight else 0
+
+    return render_template(
+        "what_if.html",
+        scenarios=scenario_results,
+        origin_port=origin_port,
+        destination_port=destination_port,
+        commodity=commodity,
+        cargo_qty=cargo_qty
+    )
 
 
 @app.route("/", methods=["GET", "POST"])
